@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CardHub — Business Card Organizer</title>
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/contacts.css" />
+<link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body>
+
+  <!-- ===== APP SHELL ===== -->
+  <div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="brand-mark">C</span>
+        <span class="brand-name">CardHub</span>
+      </div>
+
+      <nav class="tabs" id="mainNav" aria-label="Main navigation">
+        <button type="button" class="tab-btn is-active" data-view="dashboard" aria-current="page">
+          <span class="tab-index">01</span> Dashboard
+        </button>
+        <button type="button" class="tab-btn" data-view="contacts">
+          <span class="tab-index">02</span> Contacts
+        </button>
+        <button type="button" class="tab-btn" data-view="categories">
+          <span class="tab-index">03</span> Categories
+        </button>
+        <button type="button" class="tab-btn" data-view="settings">
+          <span class="tab-index">04</span> Settings
+        </button>
+      </nav>
+
+      <button class="btn btn-primary btn-add-sidebar" id="btnAddContactSidebar">+ New Card</button>
+    </aside>
+
+    <button type="button" class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+
+      <!-- DASHBOARD VIEW -->
+      <section class="view is-active" id="view-dashboard">
+        <header class="view-header">
+          <h1>Dashboard</h1>
+          <p class="view-sub">Your contacts at a glance.</p>
+        </header>
+
+        <div class="stat-grid" id="statGrid">
+          <div class="stat-card">
+            <span class="stat-eyebrow">Total</span>
+            <span class="stat-value" id="statTotal">0</span>
+            <span class="stat-label">Business cards</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-eyebrow">Companies</span>
+            <span class="stat-value" id="statCompanies">0</span>
+            <span class="stat-label">Unique companies</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-eyebrow">Favorites</span>
+            <span class="stat-value" id="statFavorites">0</span>
+            <span class="stat-label">Starred contacts</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-eyebrow">Categories</span>
+            <span class="stat-value" id="statCategories">0</span>
+            <span class="stat-label">In use</span>
+          </div>
+        </div>
+
+        <div class="dashboard-lower">
+          <div class="panel">
+            <h2 class="panel-title">Recently added</h2>
+            <div class="recent-list" id="recentList"></div>
+          </div>
+          <div class="panel">
+            <h2 class="panel-title">Categories</h2>
+            <div class="category-breakdown" id="categoryBreakdown"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONTACTS VIEW -->
+      <section class="view" id="view-contacts">
+        <header class="view-header">
+          <h1>Contacts</h1>
+          <p class="view-sub">Search, filter and manage every card.</p>
+        </header>
+
+        <div class="toolbar">
+          <div class="search-box">
+            <label class="sr-only" for="searchInput">Search contacts</label>
+            <input type="search" id="searchInput" placeholder="Search name, company, or email…" autocomplete="off" />
+          </div>
+          <select id="filterCategory" class="select-input">
+            <option value="all">All categories</option>
+          </select>
+          <select id="sortBy" class="select-input">
+            <option value="recent">Sort: Recently added</option>
+            <option value="name-asc">Sort: Name (A–Z)</option>
+            <option value="name-desc">Sort: Name (Z–A)</option>
+            <option value="company-asc">Sort: Company (A–Z)</option>
+            <option value="company-desc">Sort: Company (Z–A)</option>
+          </select>
+          <button class="btn btn-toggle" id="btnFavFilter" aria-pressed="false">☆ Favorites</button>
+          <div class="view-switch" id="viewSwitch">
+            <button type="button" class="view-switch-btn is-active" data-layout="grid" aria-label="Grid view" aria-pressed="true">▦</button>
+            <button type="button" class="view-switch-btn" data-layout="list" aria-label="List view" aria-pressed="false">☰</button>
+          </div>
+        </div>
+
+        <div class="card-deck" id="cardDeck" data-layout="grid"></div>
+        <div class="empty-state" id="emptyState" hidden>
+          <p class="empty-title">No cards match yet</p>
+          <p class="empty-sub">Try a different search, or file a new card into the drawer.</p>
+        </div>
+      </section>
+
+      <!-- CATEGORIES VIEW -->
+      <section class="view" id="view-categories">
+        <header class="view-header">
+          <h1>Categories</h1>
+          <p class="view-sub">Organize contacts into drawers.</p>
+        </header>
+
+        <div class="add-category-row">
+          <input type="text" id="newCategoryInput" placeholder="New category name…" />
+          <button class="btn btn-primary" id="btnAddCategory">Add category</button>
+        </div>
+
+        <div class="category-list" id="categoryList"></div>
+      </section>
+
+      <!-- SETTINGS VIEW -->
+      <section class="view" id="view-settings">
+        <header class="view-header">
+          <h1>Settings</h1>
+          <p class="view-sub">Appearance and data.</p>
+        </header>
+
+        <div class="settings-grid">
+          <div class="panel">
+            <h2 class="panel-title">Appearance</h2>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name">Theme</p>
+                <p class="setting-desc">Switch between light card-stock and dark ink mode.</p>
+              </div>
+              <button class="theme-switch" id="themeToggle" aria-pressed="false">
+                <span class="theme-switch-dot"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2 class="panel-title">Data</h2>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name">Export contacts</p>
+                <p class="setting-desc">Download every card as a JSON file.</p>
+              </div>
+              <button class="btn btn-secondary" id="btnExportJson">Export JSON</button>
+            </div>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name">Import contacts</p>
+                <p class="setting-desc">Load cards from a previously exported JSON file.</p>
+              </div>
+              <label class="btn btn-secondary" for="importFileInput">Import JSON</label>
+              <input type="file" id="importFileInput" accept="application/json" hidden />
+            </div>
+            <div class="setting-row">
+              <div>
+                <p class="setting-name">Reset all data</p>
+                <p class="setting-desc">Permanently erase every contact, category and setting.</p>
+              </div>
+              <button class="btn btn-danger" id="btnResetData">Reset data</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ===== CONTACT FORM MODAL (Add / Edit) ===== -->
+  <div class="modal-overlay" id="contactModalOverlay" hidden>
+    <div class="modal modal-form" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle">
+      <div class="modal-head">
+        <h2 id="contactModalTitle">New card</h2>
+        <button class="modal-close" id="closeContactModal" aria-label="Close">✕</button>
+      </div>
+
+      <form id="contactForm" class="contact-form">
+        <input type="hidden" id="contactId" />
+
+        <div class="form-photo-row">
+          <div class="photo-preview" id="photoPreview">
+            <span id="photoInitials">?</span>
+            <img id="photoImg" src="" alt="" hidden />
+          </div>
+          <div>
+            <label class="btn btn-secondary btn-sm" for="photoInput">Upload photo</label>
+            <input type="file" id="photoInput" accept="image/*" hidden />
+            <button type="button" class="btn btn-ghost btn-sm" id="btnRemovePhoto">Remove</button>
+          </div>
+        </div>
+
+        <p class="form-error" id="contactFormError" role="alert" hidden></p>
+        <div class="form-grid">
+  <label class="field">
+    <span>Full name *</span>
+    <input type="text" id="fieldFullName" required maxlength="120" aria-describedby="contactFormError" placeholder="Jane Whitfield" />
+  </label>
+
+  <label class="field">
+    <span>Company</span>
+    <input type="text" id="fieldCompany" maxlength="120" placeholder="Whitfield & Co." />
+  </label>
+
+  <label class="field">
+    <span>Job title</span>
+    <input type="text" id="fieldJobTitle" maxlength="120" placeholder="Creative Director" />
+  </label>
+
+  <label class="field">
+    <span>Category</span>
+    <select id="fieldCategory"></select>
+  </label>
+
+  <label class="field">
+    <span>Email</span>
+    <input type="email" id="fieldEmail" maxlength="254" placeholder="jane@whitfield.co" />
+  </label>
+
+  <label class="field">
+    <span>Phone</span>
+    <input type="tel" id="fieldPhone" maxlength="40" placeholder="+1 (555) 010-0100" />
+  </label>
+
+  <label class="field">
+    <span>Website</span>
+    <input type="url" id="fieldWebsite" maxlength="2048" placeholder="https://whitfield.co" />
+  </label>
+
+  <!-- NEW: Priority -->
+  <label class="field">
+    <span>Priority</span>
+    <select id="fieldPriority">
+      <option value="low">Low</option>
+      <option value="medium" selected>Medium</option>
+      <option value="high">High</option>
+    </select>
+  </label>
+
+  <!-- NEW: Status -->
+  <label class="field">
+    <span>Status</span>
+    <select id="fieldStatus">
+      <option value="active" selected>Active</option>
+      <option value="follow-up">Follow-up</option>
+      <option value="inactive">Inactive</option>
+    </select>
+  </label>
+
+  <!-- NEW: Follow-up date -->
+  <label class="field">
+    <span>Next follow-up</span>
+    <input type="datetime-local" id="fieldNextFollowUp" />
+  </label>
+
+  <label class="field">
+    <span>Last contacted</span>
+    <input type="datetime-local" id="fieldLastContacted" />
+  </label>
+
+  <label class="field field-wide">
+    <span>Address</span>
+    <input type="text" id="fieldAddress" maxlength="300" placeholder="221 Ink Street, Suite 4" />
+  </label>
+
+  <label class="field field-wide">
+    <span>Notes</span>
+    <textarea
+      id="fieldNotes"
+      rows="3"
+      maxlength="2000"
+      placeholder="Met at the print fair, prefers email…"
+    ></textarea>
+  </label>
+
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="cancelContactForm">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveContactBtn">Save card</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== CONTACT DETAIL MODAL ===== -->
+  <div class="modal-overlay" id="detailModalOverlay" hidden>
+    <div class="modal modal-detail" role="dialog" aria-modal="true" aria-labelledby="detailName">
+      <button class="modal-close" id="closeDetailModal" aria-label="Close">✕</button>
+      <div class="detail-head">
+        <div class="detail-photo" id="detailPhoto"><span id="detailInitials">?</span></div>
+        <div>
+          <h2 id="detailName">—</h2>
+          <p id="detailTitleCompany" class="detail-sub">—</p>
+          <span class="badge" id="detailCategory">—</span>
+        </div>
+      </div>
+
+      <dl class="detail-fields" id="detailFields"></dl>
+
+      <div class="detail-actions">
+        <button class="btn btn-secondary" id="detailCopyEmail">Copy email</button>
+        <button class="btn btn-secondary" id="detailCopyPhone">Copy phone</button>
+        <button class="btn btn-secondary" id="detailOpenWebsite">Open website</button>
+        <button class="btn btn-secondary" id="detailExportVcard">Export vCard</button>
+        <button class="btn btn-ghost" id="detailEdit">Edit</button>
+        <button class="btn btn-danger" id="detailDelete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CONFIRM DIALOG ===== -->
+  <div class="modal-overlay" id="confirmOverlay" hidden>
+    <div class="modal modal-confirm" role="alertdialog" aria-modal="true">
+      <p id="confirmMessage">Are you sure?</p>
+      <div class="form-actions">
+        <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+        <button class="btn btn-danger" id="confirmOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOASTS -->
+  <div class="toast-stack" id="toastStack" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/validation.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/contacts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
