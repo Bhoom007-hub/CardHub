@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CardHub — Business Card Organizer</title>
+  <meta name="description" content="Manage and organize your business contacts professionally." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/contacts.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+  <link rel="stylesheet" href="css/public.css" />
+</head>
+<body>
+
+  <!-- ===== SVG SPRITE ===== -->
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <!-- logo mark -->
+      <symbol id="icon-logo" viewBox="0 0 20 20">
+        <rect x="2" y="4" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="2" y1="8" x2="18" y2="8" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="5" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="14.5" cy="12" r="1.5" fill="currentColor"/>
+      </symbol>
+      <!-- nav: dashboard -->
+      <symbol id="icon-dashboard" viewBox="0 0 20 20">
+        <rect x="2" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity=".85"/>
+        <rect x="11" y="2" width="7" height="7" rx="1.5" fill="currentColor" opacity=".85"/>
+        <rect x="2" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity=".85"/>
+        <rect x="11" y="11" width="7" height="7" rx="1.5" fill="currentColor" opacity=".85"/>
+      </symbol>
+      <!-- nav: contacts -->
+      <symbol id="icon-contacts" viewBox="0 0 20 20">
+        <circle cx="10" cy="7" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- nav: categories -->
+      <symbol id="icon-categories" viewBox="0 0 20 20">
+        <path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h5.086a1.5 1.5 0 0 1 1.06.44l5.914 5.914a1.5 1.5 0 0 1 0 2.121l-4.086 4.086a1.5 1.5 0 0 1-2.121 0L3.44 10.646A1.5 1.5 0 0 1 3 9.586V5.5Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="6" cy="7.5" r="1" fill="currentColor"/>
+      </symbol>
+      <!-- nav: settings -->
+      <symbol id="icon-settings" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 2v1.5M10 16.5V18M2 10h1.5M16.5 10H18M4.1 4.1l1.06 1.06M14.84 14.84l1.06 1.06M4.1 15.9l1.06-1.06M14.84 5.16l1.06-1.06" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- add / plus -->
+      <symbol id="icon-plus" viewBox="0 0 20 20">
+        <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </symbol>
+      <!-- search -->
+      <symbol id="icon-search" viewBox="0 0 20 20">
+        <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M13 13l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </symbol>
+      <!-- grid view -->
+      <symbol id="icon-grid" viewBox="0 0 20 20">
+        <rect x="2" y="2" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <rect x="11" y="2" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <rect x="2" y="11" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <rect x="11" y="11" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      </symbol>
+      <!-- list view -->
+      <symbol id="icon-list" viewBox="0 0 20 20">
+        <line x1="3" y1="5" x2="17" y2="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="3" y1="10" x2="17" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="3" y1="15" x2="17" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- star (empty) -->
+      <symbol id="icon-star-empty" viewBox="0 0 20 20">
+        <path d="M10 2.5l2.247 4.554 5.028.731-3.638 3.545.859 5.004L10 13.77l-4.496 2.364.86-5.004L2.725 7.785l5.028-.731L10 2.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      </symbol>
+      <!-- star (filled) -->
+      <symbol id="icon-star-filled" viewBox="0 0 20 20">
+        <path d="M10 2.5l2.247 4.554 5.028.731-3.638 3.545.859 5.004L10 13.77l-4.496 2.364.86-5.004L2.725 7.785l5.028-.731L10 2.5Z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      </symbol>
+      <!-- edit (pencil) -->
+      <symbol id="icon-edit" viewBox="0 0 20 20">
+        <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-8.5 8.5a2 2 0 0 1-.878.513l-3.25.812a.5.5 0 0 1-.607-.607l.812-3.25a2 2 0 0 1 .513-.878l8.082-8.918Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <!-- delete (trash) -->
+      <symbol id="icon-trash" viewBox="0 0 20 20">
+        <path d="M3 5h14M8 5V3h4v2M6 5l1 12h6l1-12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <!-- view (eye) -->
+      <symbol id="icon-eye" viewBox="0 0 20 20">
+        <path d="M2 10s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="10" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      </symbol>
+      <!-- email -->
+      <symbol id="icon-email" viewBox="0 0 20 20">
+        <rect x="2" y="4" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M2 7l8 5 8-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- phone -->
+      <symbol id="icon-phone" viewBox="0 0 20 20">
+        <path d="M4 2h3.5l1.5 4-2 1.5c.9 1.5 2.5 3 4 4L12.5 9.5l4 1.5V14.5A1.5 1.5 0 0 1 15 16C7.82 16 2 10.18 2 3.5A1.5 1.5 0 0 1 4 2Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <!-- web / globe -->
+      <symbol id="icon-globe" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M2 10h16M10 2c-2.5 3-4 5.5-4 8s1.5 5 4 8M10 2c2.5 3 4 5.5 4 8s-1.5 5-4 8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      </symbol>
+      <!-- copy -->
+      <symbol id="icon-copy" viewBox="0 0 20 20">
+        <rect x="7" y="7" width="10" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M13 7V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- export / download -->
+      <symbol id="icon-download" viewBox="0 0 20 20">
+        <path d="M10 3v10M6 9l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- import / upload -->
+      <symbol id="icon-upload" viewBox="0 0 20 20">
+        <path d="M10 13V3M6 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- reset -->
+      <symbol id="icon-reset" viewBox="0 0 20 20">
+        <path d="M3 10a7 7 0 1 1 .9 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M3 14V10h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <!-- vcard -->
+      <symbol id="icon-vcard" viewBox="0 0 20 20">
+        <rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <circle cx="7" cy="10" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <line x1="11" y1="9" x2="16" y2="9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="11" y1="12" x2="14" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </symbol>
+      <!-- close / x -->
+      <symbol id="icon-close" viewBox="0 0 20 20">
+        <path d="M4 4l12 12M16 4L4 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </symbol>
+      <!-- moon (dark mode) -->
+      <symbol id="icon-moon" viewBox="0 0 20 20">
+        <path d="M17 12.5A7.5 7.5 0 0 1 7.5 3a7.5 7.5 0 1 0 9.5 9.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- sun (light mode) -->
+      <symbol id="icon-sun" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.93 4.93l1.41 1.41M13.66 13.66l1.41 1.41M4.93 15.07l1.41-1.41M13.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- hamburger menu -->
+      <symbol id="icon-menu" viewBox="0 0 20 20">
+        <path d="M2 5h16M2 10h16M2 15h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </symbol>
+      <!-- alert / warning -->
+      <symbol id="icon-alert" viewBox="0 0 20 20">
+        <path d="M10 3L2 17h16L10 3Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        <line x1="10" y1="10" x2="10" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="10" cy="15.5" r="0.75" fill="currentColor"/>
+      </symbol>
+      <!-- check / success -->
+      <symbol id="icon-check" viewBox="0 0 20 20">
+        <path d="M4 10l4.5 4.5L16 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <!-- people / recently added -->
+      <symbol id="icon-people" viewBox="0 0 20 20">
+        <circle cx="7" cy="6.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M2 16c0-2.761 2.239-5 5-5s5 2.239 5 5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="14" cy="6.5" r="2" fill="none" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M14 11.5c1.657 0 3 1.567 3 3.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+      </symbol>
+      <!-- chart / breakdown -->
+      <symbol id="icon-chart" viewBox="0 0 20 20">
+        <rect x="3" y="11" width="3" height="6" rx="1" fill="currentColor" opacity=".6"/>
+        <rect x="8.5" y="7" width="3" height="10" rx="1" fill="currentColor" opacity=".8"/>
+        <rect x="14" y="3" width="3" height="14" rx="1" fill="currentColor"/>
+      </symbol>
+      <!-- rotate (flip hint) -->
+      <symbol id="icon-flip" viewBox="0 0 20 20">
+        <path d="M3.5 10a6.5 6.5 0 0 0 11.73 3.88" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M16.5 10a6.5 6.5 0 0 0-11.73-3.88" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M16 7.5l.5 2.5 2.5-.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 12.5l-.5-2.5-2.5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+      <!-- profile -->
+      <symbol id="icon-user" viewBox="0 0 20 20">
+        <circle cx="10" cy="6.5" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M3.5 17c.5-3 2.7-4.5 6.5-4.5s6 1.5 6.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </symbol>
+      <!-- logout -->
+      <symbol id="icon-logout" viewBox="0 0 20 20">
+        <path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M11 6l4 4-4 4M7 10h8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- ===== PUBLIC NAVIGATION ===== -->
+  <nav class="public-nav" id="nav-public" aria-label="Public navigation" hidden>
+    <a class="brand" href="#" data-view="home" aria-label="CardHub Pro home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg><use href="#icon-logo"/></svg>
+      </span>
+      <span>CardHub Pro</span>
+    </a>
+    <div class="public-nav-links" id="nav-public-links">
+      <a href="#" data-view="home" aria-current="page">Home</a>
+      <a href="#" data-view="about">About</a>
+      <a href="#" data-view="login">Log In</a>
+      <a href="#" data-view="signup" class="btn btn-primary">Sign Up</a>
+    </div>
+    <div class="public-nav-actions">
+      <a href="#" data-view="login" class="btn btn-ghost">Log In</a>
+      <a href="#" data-view="signup" class="btn btn-primary">Sign Up Free</a>
+    </div>
+    <button class="public-nav-toggle" type="button" aria-label="Toggle public navigation"
+            aria-controls="nav-public-links" aria-expanded="false">
+      <svg aria-hidden="true"><use href="#icon-menu"/></svg>
+    </button>
+  </nav>
+
+  <!-- ===== APP SHELL ===== -->
+  <div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar" data-nav-id="nav-private" aria-label="Private navigation">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg><use href="#icon-logo"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">CardHub</div>
+          <div class="brand-tagline">Business Contacts</div>
+        </div>
+      </div>
+
+      <nav class="tabs" id="mainNav" aria-label="Main navigation">
+        <button type="button" class="tab-btn is-active" data-view="dashboard" aria-current="page">
+          <svg class="tab-btn-icon" aria-hidden="true"><use href="#icon-dashboard"/></svg>
+          <span class="tab-btn-label">Dashboard</span>
+        </button>
+        <button type="button" class="tab-btn" data-view="contacts">
+          <svg class="tab-btn-icon" aria-hidden="true"><use href="#icon-contacts"/></svg>
+          <span class="tab-btn-label">Contacts</span>
+        </button>
+        <button type="button" class="tab-btn" data-view="categories">
+          <svg class="tab-btn-icon" aria-hidden="true"><use href="#icon-categories"/></svg>
+          <span class="tab-btn-label">Categories</span>
+        </button>
+        <button type="button" class="tab-btn" data-view="settings">
+          <svg class="tab-btn-icon" aria-hidden="true"><use href="#icon-settings"/></svg>
+          <span class="tab-btn-label">Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button type="button" class="btn btn-primary btn-add-sidebar" id="btnAddContactSidebar">
+          <svg aria-hidden="true"><use href="#icon-plus"/></svg>
+          New Card
+        </button>
+        <div class="sidebar-profile" aria-label="Signed-in user">
+          <div class="sidebar-profile-icon" aria-hidden="true">
+            <svg><use href="#icon-user"/></svg>
+          </div>
+          <p class="sidebar-user-name" id="sidebarUserName" aria-live="polite"></p>
+        </div>
+        <button type="button" class="btn btn-ghost btn-logout" id="btn-logout">
+          <svg aria-hidden="true"><use href="#icon-logout"/></svg>
+          Log out
+        </button>
+      </div>
+    </aside>
+
+    <!-- Mobile nav toggle -->
+    <button type="button" class="mobile-nav-toggle" id="mobileNavToggle"
+            aria-label="Toggle navigation" aria-controls="sidebar" aria-expanded="false">
+      <svg aria-hidden="true"><use href="#icon-menu"/></svg>
+    </button>
+
+    <!-- MAIN CONTENT -->
+    <main class="main" id="mainContent">
+
+      <!-- ===== HOME VIEW ===== -->
+      <section class="view public-page" id="view-home" aria-labelledby="heading-home" hidden>
+        <section class="hero" aria-labelledby="heading-home">
+          <div class="hero-content">
+            <p class="hero-eyebrow">A clearer way to grow your network</p>
+            <h1 class="hero-title" id="heading-home">Every connection, <span class="accent">within reach.</span></h1>
+            <p class="hero-description">CardHub Pro turns scattered business cards into a focused, searchable workspace so you can spend less time filing contacts and more time building relationships.</p>
+            <div class="hero-actions">
+              <a class="btn btn-primary btn-lg" href="#" data-view="signup">Get Started Free</a>
+              <a class="btn btn-secondary btn-lg" href="#" data-view="about">Learn More</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="features" aria-labelledby="heading-features">
+          <div class="public-section">
+            <header class="public-section-header">
+              <p class="public-section-eyebrow">Built for follow-through</p>
+              <h2 class="public-section-title" id="heading-features">A better home for every introduction.</h2>
+              <p class="public-section-description">Keep the details that matter close, organized, and ready for the next conversation.</p>
+            </header>
+            <div class="features-grid">
+              <article class="feature-card"><div class="feature-icon" aria-hidden="true"><svg><use href="#icon-contacts"/></svg></div><h3>One trusted workspace</h3><p>Keep every business contact in one place instead of searching through desk drawers and inboxes.</p></article>
+              <article class="feature-card"><div class="feature-icon" aria-hidden="true"><svg><use href="#icon-search"/></svg></div><h3>Find details quickly</h3><p>Search names, companies, and email addresses the moment you need them.</p></article>
+              <article class="feature-card"><div class="feature-icon" aria-hidden="true"><svg><use href="#icon-categories"/></svg></div><h3>Make it yours</h3><p>Use categories, favorites, and views that match the way you work.</p></article>
+              <article class="feature-card"><div class="feature-icon" aria-hidden="true"><svg><use href="#icon-download"/></svg></div><h3>Keep control</h3><p>Export your contacts whenever you need a portable backup of your network.</p></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="how-it-works" aria-labelledby="heading-how-it-works">
+          <div class="public-section">
+            <header class="public-section-header"><p class="public-section-eyebrow">A simple rhythm</p><h2 class="public-section-title" id="heading-how-it-works">From card to connection in four steps.</h2></header>
+            <ol class="how-it-works-list">
+              <li class="how-it-works-step"><span class="how-it-works-number">01</span><h3>Create your account</h3><p>Start a private workspace in a few moments.</p></li>
+              <li class="how-it-works-step"><span class="how-it-works-number">02</span><h3>File your contacts</h3><p>Add the people and companies you want to remember.</p></li>
+              <li class="how-it-works-step"><span class="how-it-works-number">03</span><h3>Shape your view</h3><p>Sort, filter, favorite, and group contacts your way.</p></li>
+              <li class="how-it-works-step"><span class="how-it-works-number">04</span><h3>Follow up well</h3><p>Open the right details when the next opportunity arrives.</p></li>
+            </ol>
+          </div>
+        </section>
+
+        <section class="benefits" aria-labelledby="heading-benefits">
+          <div class="public-section">
+            <header class="public-section-header"><p class="public-section-eyebrow">More signal, less friction</p><h2 class="public-section-title" id="heading-benefits">Designed around the way relationships grow.</h2></header>
+            <div class="benefits-grid">
+              <article class="benefit-card"><div class="benefit-icon" aria-hidden="true"><svg><use href="#icon-check"/></svg></div><div><h3>Stay prepared</h3><p>Have the context you need before every meeting, message, and introduction.</p></div></article>
+              <article class="benefit-card"><div class="benefit-icon" aria-hidden="true"><svg><use href="#icon-star-filled"/></svg></div><div><h3>Prioritize people</h3><p>Keep your most important relationships visible without losing the wider picture.</p></div></article>
+              <article class="benefit-card"><div class="benefit-icon" aria-hidden="true"><svg><use href="#icon-reset"/></svg></div><div><h3>Work with confidence</h3><p>Own your information with local persistence and straightforward data controls.</p></div></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="cta-band" aria-labelledby="heading-home-cta">
+          <div class="cta-band-content"><h2 id="heading-home-cta">Make your next follow-up easier.</h2><p>Build a calmer, more useful contact routine with CardHub Pro.</p></div>
+          <a class="btn btn-primary btn-lg" href="#" data-view="signup">Sign Up Free</a>
+        </section>
+      </section>
+ 
+      <!-- ===== ABOUT VIEW ===== -->
+      <section class="view public-page" id="view-about" aria-labelledby="heading-about" hidden>
+        <section class="about-hero"><p class="public-section-eyebrow">About CardHub Pro</p><h1 id="heading-about">The people you meet deserve more than a forgotten card.</h1><p>CardHub Pro gives your professional relationships a useful, private place to live, so the value of a great introduction can continue long after the handshake.</p></section>
+        <section class="problem" aria-labelledby="heading-problem"><div class="public-section problem-content"><h2 id="heading-problem">The problem is rarely the meeting.</h2><p>It is the weeks afterward: a name you cannot place, a phone number buried in a drawer, or a promising conversation that disappears into an overflowing inbox. Important context gets scattered, and follow-up becomes harder than it should be.</p></div></section>
+        <section class="solution" aria-labelledby="heading-solution"><div class="public-section solution-content"><h2 id="heading-solution">A small system for meaningful connections.</h2><p>CardHub Pro lets you add, search, organize, and revisit your business contacts from one focused workspace. Your account keeps its own contacts, categories, and preferences in your browser, giving you a practical foundation without a complicated setup.</p></div></section>
+        <section class="benefits-list benefits" aria-labelledby="heading-about-benefits"><div class="public-section"><header class="public-section-header"><p class="public-section-eyebrow">Why it matters</p><h2 class="public-section-title" id="heading-about-benefits">Make relationship-building easier to sustain.</h2></header><div class="benefits-grid"><article class="benefit-card"><div class="benefit-icon" aria-hidden="true"><svg><use href="#icon-search"/></svg></div><div><h3>Clarity</h3><p>See the information that matters without the clutter.</p></div></article><article class="benefit-card"><div class="benefit-icon" aria-hidden="true"><svg><use href="#icon-people"/></svg></div><div><h3>Continuity</h3><p>Keep the thread of a relationship from one conversation to the next.</p></div></article><article class="benefit-card"><div class="benefit-icon" aria-hidden="true"><svg><use href="#icon-settings"/></svg></div><div><h3>Ownership</h3><p>Manage your data and your workflow in a space that belongs to you.</p></div></article></div></div></section>
+        <section class="vision" aria-labelledby="heading-vision"><div class="public-section vision-content"><h2 id="heading-vision">Our vision</h2><p>Professional networking should feel human, not administrative. CardHub Pro is built to help people remember well, follow through thoughtfully, and turn good introductions into lasting working relationships.</p></div></section>
+        <section class="cta-band" aria-labelledby="heading-about-cta"><div class="cta-band-content"><h2 id="heading-about-cta">Give your network somewhere useful to grow.</h2><p>Start organizing your professional relationships today.</p></div><a class="btn btn-primary btn-lg" href="#" data-view="signup">Sign Up Free</a></section>
+      </section>
+
+      <!-- ===== LOGIN VIEW ===== -->
+      <section class="view public-page" id="view-login" aria-labelledby="heading-login" hidden>
+        <div class="auth-page">
+          <div class="auth-card">
+            <div class="auth-card-header"><div class="auth-card-logo" aria-hidden="true"><svg><use href="#icon-logo"/></svg></div><h1 id="heading-login">Welcome back</h1><p>Sign in to continue to your contact workspace.</p></div>
+            <form id="loginForm" class="auth-form" novalidate>
+              <div class="field"><label for="loginEmail">Email address</label><input type="email" id="loginEmail" name="email" autocomplete="username" required aria-describedby="loginEmailError"><span class="form-error" id="loginEmailError" aria-live="polite"></span></div>
+              <div class="field"><label for="loginPassword">Password</label><input type="password" id="loginPassword" name="password" autocomplete="current-password" required aria-describedby="loginPasswordError"><span class="form-error" id="loginPasswordError" aria-live="polite"></span></div>
+              <p class="form-error" id="loginFormError" role="alert" aria-live="polite"></p>
+              <button type="submit" class="btn btn-primary">Log In</button>
+            </form>
+            <p class="auth-switch">Don't have an account? <a href="#" data-view="signup">Sign Up</a></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== SIGN UP VIEW ===== -->
+      <section class="view public-page" id="view-signup" aria-labelledby="heading-signup" hidden>
+        <div class="auth-page">
+          <div class="auth-card">
+            <div class="auth-card-header"><div class="auth-card-logo" aria-hidden="true"><svg><use href="#icon-logo"/></svg></div><h1 id="heading-signup">Create your account</h1><p>Build a private home for your business contacts.</p></div>
+            <form id="signupForm" class="auth-form" novalidate>
+              <div class="field"><label for="signupName">Full name</label><input type="text" id="signupName" name="name" autocomplete="name" required maxlength="100" aria-describedby="signupNameError"><span class="form-error" id="signupNameError" aria-live="polite"></span></div>
+              <div class="field"><label for="signupEmail">Email address</label><input type="email" id="signupEmail" name="email" autocomplete="email" required aria-describedby="signupEmailError"><span class="form-error" id="signupEmailError" aria-live="polite"></span></div>
+              <div class="field"><label for="signupPassword">Password</label><input type="password" id="signupPassword" name="password" autocomplete="new-password" required aria-describedby="signupPasswordError"><span class="form-error" id="signupPasswordError" aria-live="polite"></span></div>
+              <div class="field"><label for="signupConfirmPassword">Confirm password</label><input type="password" id="signupConfirmPassword" name="confirmPassword" autocomplete="new-password" required aria-describedby="signupConfirmPasswordError"><span class="form-error" id="signupConfirmPasswordError" aria-live="polite"></span></div>
+              <p class="form-error" id="signupFormError" role="alert" aria-live="polite"></p>
+              <button type="submit" class="btn btn-primary">Sign Up Free</button>
+            </form>
+            <p class="auth-switch">Already have an account? <a href="#" data-view="login">Log In</a></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== DASHBOARD VIEW ===== -->
+      <section class="view" id="view-dashboard" aria-labelledby="dashWelcome" hidden>
+        <header class="view-header">
+          <h1 id="dashWelcome">Dashboard</h1>
+          <p class="view-sub">Your contacts at a glance.</p>
+        </header>
+
+        <div class="stat-grid" id="statGrid">
+          <div class="stat-card">
+            <div class="stat-card-icon" aria-hidden="true">
+              <svg><use href="#icon-vcard"/></svg>
+            </div>
+            <span class="stat-eyebrow">Total</span>
+            <span class="stat-value" id="statTotal">0</span>
+            <span class="stat-label">Business cards</span>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" aria-hidden="true">
+              <svg><use href="#icon-globe"/></svg>
+            </div>
+            <span class="stat-eyebrow">Companies</span>
+            <span class="stat-value" id="statCompanies">0</span>
+            <span class="stat-label">Unique companies</span>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" aria-hidden="true">
+              <svg><use href="#icon-star-filled"/></svg>
+            </div>
+            <span class="stat-eyebrow">Favorites</span>
+            <span class="stat-value" id="statFavorites">0</span>
+            <span class="stat-label">Starred contacts</span>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" aria-hidden="true">
+              <svg><use href="#icon-categories"/></svg>
+            </div>
+            <span class="stat-eyebrow">Categories</span>
+            <span class="stat-value" id="statCategories">0</span>
+            <span class="stat-label">In use</span>
+          </div>
+        </div>
+
+        <div class="empty-state" id="dashboardEmptyState" hidden>
+          <div class="empty-state-icon" aria-hidden="true">
+            <svg><use href="#icon-contacts"/></svg>
+          </div>
+          <p class="empty-title">You haven't added any contacts yet.</p>
+          <p class="empty-sub">Start building your private contact workspace.</p>
+          <button type="button" class="btn btn-primary" id="btnDashboardEmptyAdd">
+            <svg aria-hidden="true"><use href="#icon-plus"/></svg>
+            Add Your First Contact
+          </button>
+        </div>
+
+        <div class="dashboard-lower">
+          <div class="panel">
+            <h2 class="panel-title">
+              <svg aria-hidden="true"><use href="#icon-people"/></svg>
+              Recently added
+            </h2>
+            <div class="recent-list" id="recentList"></div>
+          </div>
+          <div class="panel">
+            <h2 class="panel-title">
+              <svg aria-hidden="true"><use href="#icon-chart"/></svg>
+              By category
+            </h2>
+            <div class="category-breakdown" id="categoryBreakdown"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== CONTACTS VIEW ===== -->
+      <section class="view" id="view-contacts" aria-labelledby="heading-contacts">
+        <header class="view-header">
+          <h1 id="heading-contacts">Contacts</h1>
+          <p class="view-sub">Search, filter and manage every card.</p>
+        </header>
+
+        <div class="toolbar" role="search" aria-label="Filter contacts">
+          <div class="search-box">
+            <svg class="search-box-icon" aria-hidden="true"><use href="#icon-search"/></svg>
+            <label class="sr-only" for="searchInput">Search contacts</label>
+            <input type="search" id="searchInput" placeholder="Search name, company or email…" autocomplete="off" />
+          </div>
+
+          <label class="sr-only" for="filterCategory">Filter by category</label>
+          <select id="filterCategory" class="select-input">
+            <option value="all">All categories</option>
+          </select>
+
+          <label class="sr-only" for="sortBy">Sort contacts</label>
+          <select id="sortBy" class="select-input">
+            <option value="recent">Recently added</option>
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+            <option value="company-asc">Company A–Z</option>
+            <option value="company-desc">Company Z–A</option>
+          </select>
+
+          <button class="btn btn-toggle" id="btnFavFilter" aria-pressed="false">
+            <svg aria-hidden="true"><use href="#icon-star-filled"/></svg>
+            Favorites
+          </button>
+
+          <div class="view-switch" id="viewSwitch" role="group" aria-label="Layout">
+            <button type="button" class="view-switch-btn is-active" data-layout="grid"
+                    aria-label="Grid view" aria-pressed="true">
+              <svg aria-hidden="true"><use href="#icon-grid"/></svg>
+            </button>
+            <button type="button" class="view-switch-btn" data-layout="list"
+                    aria-label="List view" aria-pressed="false">
+              <svg aria-hidden="true"><use href="#icon-list"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="card-deck" id="cardDeck" data-layout="grid" role="list" aria-label="Contact cards"></div>
+
+        <div class="empty-state" id="emptyState" hidden>
+          <div class="empty-state-icon" aria-hidden="true">
+            <svg><use href="#icon-contacts"/></svg>
+          </div>
+          <p class="empty-title" id="emptyStateTitle">No contacts yet</p>
+          <p class="empty-sub" id="emptyStateSub">Add your first contact to get started.</p>
+          <button type="button" class="btn btn-primary" id="btnEmptyAddContact">
+            <svg aria-hidden="true"><use href="#icon-plus"/></svg>
+            Add Your First Contact
+          </button>
+        </div>
+      </section>
+
+      <!-- ===== CATEGORIES VIEW ===== -->
+      <section class="view" id="view-categories" aria-labelledby="heading-categories">
+        <header class="view-header">
+          <h1 id="heading-categories">Categories</h1>
+          <p class="view-sub">Organize contacts into drawers.</p>
+        </header>
+
+        <div class="add-category-row">
+          <label class="sr-only" for="newCategoryInput">New category name</label>
+          <input type="text" id="newCategoryInput" placeholder="New category name…" maxlength="60" />
+          <button class="btn btn-primary" id="btnAddCategory" type="button">
+            <svg aria-hidden="true"><use href="#icon-plus"/></svg>
+            Add
+          </button>
+        </div>
+
+        <div class="category-list" id="categoryList" role="list" aria-label="Category list"></div>
+      </section>
+
+      <!-- ===== SETTINGS VIEW ===== -->
+      <section class="view" id="view-settings" aria-labelledby="heading-settings">
+        <header class="view-header">
+          <h1 id="heading-settings">Settings</h1>
+          <p class="view-sub">Appearance and data management.</p>
+        </header>
+
+        <div class="settings-grid">
+          <div class="panel">
+            <h2 class="panel-title">
+              <svg aria-hidden="true"><use href="#icon-settings"/></svg>
+              Appearance
+            </h2>
+            <div class="setting-row">
+              <div class="setting-text">
+                <p class="setting-name">Theme</p>
+                <p class="setting-desc">Switch between light and dark mode.</p>
+              </div>
+              <button class="theme-switch" id="themeToggle" aria-pressed="false" aria-label="Toggle dark mode">
+                <span class="theme-switch-dot"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2 class="panel-title">
+              <svg aria-hidden="true"><use href="#icon-download"/></svg>
+              Data
+            </h2>
+            <div class="setting-row">
+              <div class="setting-text">
+                <p class="setting-name">Export contacts</p>
+                <p class="setting-desc">Download every card as a JSON backup file.</p>
+              </div>
+              <button class="btn btn-secondary" id="btnExportJson" type="button">
+                <svg aria-hidden="true"><use href="#icon-download"/></svg>
+                Export
+              </button>
+            </div>
+            <div class="setting-row">
+              <div class="setting-text">
+                <p class="setting-name">Import contacts</p>
+                <p class="setting-desc">Load cards from a previously exported JSON file.</p>
+              </div>
+              <label class="btn btn-secondary" for="importFileInput">
+                <svg aria-hidden="true"><use href="#icon-upload"/></svg>
+                Import
+              </label>
+              <input type="file" id="importFileInput" accept="application/json" hidden />
+            </div>
+            <div class="setting-row">
+              <div class="setting-text">
+                <p class="setting-name">Reset all data</p>
+                <p class="setting-desc">Permanently erase every contact, category and setting.</p>
+              </div>
+              <button class="btn btn-danger" id="btnResetData" type="button">
+                <svg aria-hidden="true"><use href="#icon-reset"/></svg>
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ===== PUBLIC FOOTER ===== -->
+  <footer class="site-footer" id="site-footer" hidden>
+    <div class="site-footer-inner">
+      <div class="site-footer-brand">
+        <h2>CardHub Pro</h2>
+        <p>A calmer, clearer way to organize the professional relationships that matter.</p>
+      </div>
+      <nav class="site-footer-nav" aria-label="Footer navigation">
+        <a href="#" data-view="home">Home</a>
+        <a href="#" data-view="about">About</a>
+        <a href="#" data-view="login">Log In</a>
+        <a href="#" data-view="signup">Sign Up</a>
+      </nav>
+    </div>
+    <div class="site-footer-bottom">&copy; 2026 CardHub Pro. All rights reserved.</div>
+  </footer>
+
+  <!-- ===== DATA MIGRATION OVERLAY ===== -->
+  <div class="migration-overlay" id="migrationOverlay" role="dialog" aria-modal="true"
+       aria-labelledby="migrationTitle" aria-describedby="migrationDescription" hidden>
+    <div class="migration-card">
+      <h2 id="migrationTitle">We found existing CardHub data.</h2>
+      <p id="migrationDescription">We found <strong id="migrationContactCount">0</strong> existing contacts. Create an account to keep them, or start fresh.</p>
+      <div class="migration-actions" id="migrationOptions">
+        <button type="button" class="btn btn-secondary" id="btnMigrationFresh">Start Fresh</button>
+        <button type="button" class="btn btn-primary" id="btnMigrationKeep">Keep My Data</button>
+      </div>
+      <form id="migrationSignupForm" class="auth-form" novalidate hidden>
+        <div class="field"><label for="migrationName">Full name</label><input type="text" id="migrationName" name="name" autocomplete="name" required maxlength="100" aria-describedby="migrationNameError"><span class="form-error" id="migrationNameError" aria-live="polite"></span></div>
+        <div class="field"><label for="migrationEmail">Email address</label><input type="email" id="migrationEmail" name="email" autocomplete="email" required aria-describedby="migrationEmailError"><span class="form-error" id="migrationEmailError" aria-live="polite"></span></div>
+        <div class="field"><label for="migrationPassword">Password</label><input type="password" id="migrationPassword" name="password" autocomplete="new-password" required aria-describedby="migrationPasswordError"><span class="form-error" id="migrationPasswordError" aria-live="polite"></span></div>
+        <div class="field"><label for="migrationConfirmPassword">Confirm password</label><input type="password" id="migrationConfirmPassword" name="confirmPassword" autocomplete="new-password" required aria-describedby="migrationConfirmPasswordError"><span class="form-error" id="migrationConfirmPasswordError" aria-live="polite"></span></div>
+        <p class="form-error" id="migrationFormError" role="alert" aria-live="polite"></p>
+        <div class="migration-actions"><button type="button" class="btn btn-ghost" id="btnMigrationCancel">Cancel</button><button type="submit" class="btn btn-primary">Create Account</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== CONTACT FORM MODAL (Add / Edit) ===== -->
+  <div class="modal-overlay" id="contactModalOverlay" hidden role="presentation">
+    <div class="modal modal-form" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle">
+      <div class="modal-head">
+        <h2 id="contactModalTitle">New card</h2>
+        <button class="modal-close" id="closeContactModal" aria-label="Close dialog" type="button">
+          <svg aria-hidden="true"><use href="#icon-close"/></svg>
+        </button>
+      </div>
+
+      <form id="contactForm" class="contact-form" novalidate>
+        <input type="hidden" id="contactId" />
+
+        <!-- Photo section -->
+        <div class="form-section" style="padding-top:4px">
+          <div class="form-photo-row">
+            <div class="photo-preview" id="photoPreview" aria-hidden="true">
+              <span id="photoInitials">?</span>
+              <img id="photoImg" src="" alt="Contact photo" hidden />
+            </div>
+            <div class="photo-actions">
+              <label class="btn btn-secondary btn-sm" for="photoInput">
+                <svg aria-hidden="true"><use href="#icon-upload"/></svg>
+                Upload photo
+              </label>
+              <input type="file" id="photoInput" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
+              <button type="button" class="btn btn-ghost btn-sm" id="btnRemovePhoto">Remove</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="form-error" id="contactFormError" role="alert" hidden>
+          <svg aria-hidden="true"><use href="#icon-alert"/></svg>
+          <span id="contactFormErrorText"></span>
+        </p>
+
+        <!-- Basic info -->
+        <div class="form-section">
+          <p class="form-section-title">Basic information</p>
+          <div class="form-grid">
+            <label class="field">
+              <span>Full name <abbr title="required" aria-label="required">*</abbr></span>
+              <input type="text" id="fieldFullName" required maxlength="120"
+                     aria-describedby="contactFormError" placeholder="Jane Whitfield" autocomplete="name" />
+            </label>
+            <label class="field">
+              <span>Company</span>
+              <input type="text" id="fieldCompany" maxlength="120"
+                     placeholder="Whitfield & Co." autocomplete="organization" />
+            </label>
+            <label class="field">
+              <span>Job title</span>
+              <input type="text" id="fieldJobTitle" maxlength="120"
+                     placeholder="Creative Director" autocomplete="organization-title" />
+            </label>
+            <label class="field">
+              <span>Category</span>
+              <select id="fieldCategory"></select>
+            </label>
+          </div>
+        </div>
+
+        <!-- Contact details -->
+        <div class="form-section">
+          <p class="form-section-title">Contact details</p>
+          <div class="form-grid">
+            <label class="field">
+              <span>Email</span>
+              <input type="email" id="fieldEmail" maxlength="254"
+                     placeholder="jane@whitfield.co" autocomplete="email" />
+            </label>
+            <label class="field">
+              <span>Phone</span>
+              <input type="tel" id="fieldPhone" maxlength="40"
+                     placeholder="+1 (555) 010-0100" autocomplete="tel" />
+            </label>
+            <label class="field">
+              <span>Website</span>
+              <input type="url" id="fieldWebsite" maxlength="2048"
+                     placeholder="https://whitfield.co" autocomplete="url" />
+            </label>
+            <label class="field field-wide">
+              <span>Address</span>
+              <input type="text" id="fieldAddress" maxlength="300"
+                     placeholder="221 Ink Street, Suite 4" autocomplete="street-address" />
+            </label>
+          </div>
+        </div>
+
+        <!-- CRM fields -->
+        <div class="form-section">
+          <p class="form-section-title">CRM fields</p>
+          <div class="form-grid">
+            <label class="field">
+              <span>Priority</span>
+              <select id="fieldPriority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Status</span>
+              <select id="fieldStatus">
+                <option value="active" selected>Active</option>
+                <option value="follow-up">Follow-up</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Next follow-up</span>
+              <input type="datetime-local" id="fieldNextFollowUp" />
+            </label>
+            <label class="field">
+              <span>Last contacted</span>
+              <input type="datetime-local" id="fieldLastContacted" />
+            </label>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-section" style="border-bottom:none">
+          <p class="form-section-title">Notes</p>
+          <div class="form-grid">
+            <label class="field field-wide">
+              <span>Notes</span>
+              <textarea id="fieldNotes" rows="3" maxlength="2000"
+                        placeholder="Met at the print fair, prefers email…"></textarea>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="cancelContactForm">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveContactBtn">
+            <svg aria-hidden="true"><use href="#icon-check"/></svg>
+            Save card
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== CONTACT DETAIL MODAL ===== -->
+  <div class="modal-overlay" id="detailModalOverlay" hidden role="presentation">
+    <div class="modal modal-detail" role="dialog" aria-modal="true" aria-labelledby="detailName">
+      <div class="detail-header-band" aria-hidden="true"></div>
+
+      <div class="detail-head">
+        <div class="detail-photo" id="detailPhoto" aria-hidden="true">
+          <span id="detailInitials">?</span>
+        </div>
+        <div class="detail-info">
+          <div class="detail-name-row">
+            <h2 id="detailName">—</h2>
+            <button class="modal-close" id="closeDetailModal" aria-label="Close dialog" type="button"
+                    style="position:static;margin-left:auto">
+              <svg aria-hidden="true"><use href="#icon-close"/></svg>
+            </button>
+          </div>
+          <p id="detailTitleCompany" class="detail-sub">—</p>
+          <div class="detail-badge-row" id="detailBadgeRow">
+            <span class="badge" id="detailCategory">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-divider" aria-hidden="true"></div>
+      <dl class="detail-fields" id="detailFields" aria-label="Contact details"></dl>
+
+      <div class="detail-actions" role="group" aria-label="Contact actions">
+        <button class="btn btn-secondary" id="detailCopyEmail" type="button">
+          <svg aria-hidden="true"><use href="#icon-copy"/></svg>
+          Copy email
+        </button>
+        <button class="btn btn-secondary" id="detailCopyPhone" type="button">
+          <svg aria-hidden="true"><use href="#icon-copy"/></svg>
+          Copy phone
+        </button>
+        <button class="btn btn-secondary" id="detailOpenWebsite" type="button">
+          <svg aria-hidden="true"><use href="#icon-globe"/></svg>
+          Website
+        </button>
+        <button class="btn btn-secondary" id="detailExportVcard" type="button">
+          <svg aria-hidden="true"><use href="#icon-vcard"/></svg>
+          vCard
+        </button>
+        <button class="btn btn-ghost" id="detailEdit" type="button">
+          <svg aria-hidden="true"><use href="#icon-edit"/></svg>
+          Edit
+        </button>
+        <button class="btn btn-danger" id="detailDelete" type="button">
+          <svg aria-hidden="true"><use href="#icon-trash"/></svg>
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CONFIRM DIALOG ===== -->
+  <div class="modal-overlay" id="confirmOverlay" hidden role="presentation">
+    <div class="modal modal-confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+      <div class="confirm-body">
+        <div class="confirm-icon" aria-hidden="true">
+          <svg><use href="#icon-alert"/></svg>
+        </div>
+        <h3 class="confirm-title" id="confirmTitle">Are you sure?</h3>
+        <p id="confirmMessage"></p>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn btn-ghost" id="confirmCancel" type="button">Cancel</button>
+        <button class="btn btn-danger" id="confirmOk" type="button">
+          <svg aria-hidden="true"><use href="#icon-trash"/></svg>
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST STACK ===== -->
+  <div class="toast-stack" id="toastStack" role="status" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- Scripts (order matters — dependencies first) -->
+  <script src="js/storage.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/validation.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/contacts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
