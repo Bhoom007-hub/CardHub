@@ -17,6 +17,7 @@ const ContactManager = (() => {
   let pendingDeleteContactId = null;
   let pendingDeleteCategory = null;
   let detailContactId = null;
+  let _listenersAttached = false;
 
   // ---------- DOM refs (queried lazily so this file can load before app.js runs) ----------
   const el = {};
@@ -67,40 +68,42 @@ const ContactManager = (() => {
   }
 
   // ---------- Data load/save ----------
-  function loadData() {
-    const user = Auth.getCurrentUser();
+  async function loadData() {
+    const user = await Auth.getCurrentUser();
     if (!user) {
       contacts = [];
       categories = [];
       return;
     }
-    contacts = Storage.getContactsForUser(user.id);
-    categories = Storage.getCategoriesForUser(user.id);
+    [contacts, categories] = await Promise.all([
+      Storage.getContactsForUser(user.id),
+      Storage.getCategoriesForUser(user.id),
+    ]);
   }
 
-  function persistContacts() {
+  async function persistContacts() {
     try {
-      const user = Auth.getCurrentUser();
+      const user = await Auth.getCurrentUser();
       if (!user) return false;
-      Storage.saveContactsForUser(user.id, contacts);
-      contacts = Storage.getContactsForUser(user.id);
+      await Storage.saveContactsForUser(user.id, contacts);
+      contacts = await Storage.getContactsForUser(user.id);
       return true;
     } catch (err) {
-      loadData();
-      Utils.showToast('Browser storage is full or unavailable. Changes were not saved.', 'error');
+      await loadData();
+      Utils.showToast('Could not save contacts. Changes were not saved.', 'error');
       return false;
     }
   }
 
-  function persistCategories() {
+  async function persistCategories() {
     try {
-      const user = Auth.getCurrentUser();
+      const user = await Auth.getCurrentUser();
       if (!user) return false;
-      Storage.saveCategoriesForUser(user.id, categories);
+      await Storage.saveCategoriesForUser(user.id, categories);
       return true;
     } catch (err) {
-      loadData();
-      Utils.showToast('Browser storage is full or unavailable. Changes were not saved.', 'error');
+      await loadData();
+      Utils.showToast('Could not save categories. Changes were not saved.', 'error');
       return false;
     }
   }
@@ -353,7 +356,7 @@ const ContactManager = (() => {
     });
   }
 
-  function addCategory(name) {
+  async function addCategory(name) {
     const trimmed = (name || '').trim();
     if (!trimmed) {
       Utils.showToast('Category name cannot be empty.', 'error');
@@ -364,7 +367,7 @@ const ContactManager = (() => {
       return false;
     }
     categories.push(trimmed);
-    persistCategories();
+    await persistCategories();
     populateCategorySelects();
     renderCategories();
     renderDashboard();
@@ -381,11 +384,11 @@ const ContactManager = (() => {
     el.confirmOverlay.hidden = false;
   }
 
-  function removeCategoryConfirmed(name) {
+  async function removeCategoryConfirmed(name) {
     categories = categories.filter((c) => c !== name);
     contacts = contacts.map((c) => (c.category === name ? { ...c, category: '' } : c));
-    persistCategories();
-    persistContacts();
+    await persistCategories();
+    await persistContacts();
     populateCategorySelects();
     renderCategories();
     renderCardDeck();
@@ -394,11 +397,11 @@ const ContactManager = (() => {
   }
 
   // ---------- Favorites ----------
-  function toggleFavorite(id) {
+  async function toggleFavorite(id) {
     const c = contacts.find((x) => x.id === id);
     if (!c) return;
     c.favorite = !c.favorite;
-    persistContacts();
+    await persistContacts();
     renderCardDeck();
     renderDashboard();
   }
@@ -498,7 +501,7 @@ const ContactManager = (() => {
     el.photoInitials.textContent = Utils.initials(el.fieldFullName.value);
   }
 
-  function handleFormSubmit(e) {
+  async function handleFormSubmit(e) {
     e.preventDefault();
     const fullName = el.fieldFullName.value.trim();
     const base = {
@@ -558,7 +561,7 @@ const ContactManager = (() => {
       Utils.showToast('Card added.', 'success');
     }
 
-    if (!persistContacts()) return;
+    if (!await persistContacts()) return;
     closeContactModal();
     renderCardDeck();
     renderDashboard();
@@ -577,20 +580,20 @@ const ContactManager = (() => {
     el.confirmOverlay.hidden = false;
   }
 
-  function deleteContactConfirmed(id) {
+  async function deleteContactConfirmed(id) {
     contacts = contacts.filter((c) => c.id !== id);
-    persistContacts();
+    await persistContacts();
     renderCardDeck();
     renderDashboard();
     renderCategories();
     Utils.showToast('Card deleted.', 'success');
   }
 
-  function confirmPendingAction() {
+  async function confirmPendingAction() {
     if (pendingDeleteContactId) {
-      deleteContactConfirmed(pendingDeleteContactId);
+      await deleteContactConfirmed(pendingDeleteContactId);
     } else if (pendingDeleteCategory) {
-      removeCategoryConfirmed(pendingDeleteCategory);
+      await removeCategoryConfirmed(pendingDeleteCategory);
     }
     pendingDeleteContactId = null;
     pendingDeleteCategory = null;
@@ -677,97 +680,102 @@ const ContactManager = (() => {
   }
 
   // ---------- Import/export passthrough (state refresh) ----------
-  function refreshFromStorage() {
-    loadData();
+  async function refreshFromStorage() {
+    await loadData();
     populateCategorySelects();
     renderDashboard();
     renderCardDeck();
     renderCategories();
   }
 
-  function init() {
-    cacheEls();
-    loadData();
+  async function init() {
+    if (!_listenersAttached) {
+      cacheEls();
+
+      el.contactForm.addEventListener('submit', handleFormSubmit);
+      el.photoInput.addEventListener('change', (e) => handlePhotoSelected(e.target.files[0]));
+      document.getElementById('btnRemovePhoto').addEventListener('click', removePhoto);
+      document.getElementById('closeContactModal').addEventListener('click', closeContactModal);
+      document.getElementById('cancelContactForm').addEventListener('click', closeContactModal);
+      el.contactModalOverlay.addEventListener('click', (e) => { if (e.target === el.contactModalOverlay) closeContactModal(); });
+
+      // Empty state CTA
+      const btnEmptyAdd = document.getElementById('btnEmptyAddContact');
+      if (btnEmptyAdd) btnEmptyAdd.addEventListener('click', openAddModal);
+      const btnDashboardEmptyAdd = document.getElementById('btnDashboardEmptyAdd');
+      if (btnDashboardEmptyAdd) btnDashboardEmptyAdd.addEventListener('click', openAddModal);
+
+      document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
+      el.detailModalOverlay.addEventListener('click', (e) => { if (e.target === el.detailModalOverlay) closeDetailModal(); });
+
+      document.getElementById('detailCopyEmail').addEventListener('click', async () => {
+        const c = getDetailContact();
+        if (!c || !c.email) return Utils.showToast('No email on file.', 'error');
+        const ok = await Utils.copyToClipboard(c.email);
+        Utils.showToast(ok ? 'Email copied.' : 'Could not copy email.', ok ? 'success' : 'error');
+      });
+
+      document.getElementById('detailCopyPhone').addEventListener('click', async () => {
+        const c = getDetailContact();
+        if (!c || !c.phone) return Utils.showToast('No phone on file.', 'error');
+        const ok = await Utils.copyToClipboard(c.phone);
+        Utils.showToast(ok ? 'Phone number copied.' : 'Could not copy phone number.', ok ? 'success' : 'error');
+      });
+
+      document.getElementById('detailOpenWebsite').addEventListener('click', () => {
+        const c = getDetailContact();
+        if (!c || !c.website) return Utils.showToast('No website on file.', 'error');
+        window.open(Utils.normalizeUrl(c.website), '_blank', 'noopener');
+      });
+
+      document.getElementById('detailExportVcard').addEventListener('click', () => {
+        const c = getDetailContact();
+        if (!c) return;
+        const vcard = Utils.vCardFor(c);
+        const filename = `${(c.fullName || 'contact').replace(/\s+/g, '_')}.vcf`;
+        Utils.downloadFile(filename, vcard, 'text/vcard');
+        Utils.showToast('vCard exported.', 'success');
+      });
+
+      document.getElementById('detailEdit').addEventListener('click', () => {
+        const id = detailContactId;
+        closeDetailModal();
+        openEditModal(id);
+      });
+
+      document.getElementById('detailDelete').addEventListener('click', () => {
+        const id = detailContactId;
+        closeDetailModal();
+        requestDeleteContact(id);
+      });
+
+      document.getElementById('confirmOk').addEventListener('click', confirmPendingAction);
+      document.getElementById('confirmCancel').addEventListener('click', cancelPendingAction);
+      el.confirmOverlay.addEventListener('click', (e) => { if (e.target === el.confirmOverlay) cancelPendingAction(); });
+
+      document.getElementById('btnAddCategory').addEventListener('click', async () => {
+        const input = document.getElementById('newCategoryInput');
+        if (await addCategory(input.value)) input.value = '';
+      });
+      document.getElementById('newCategoryInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('btnAddCategory').click();
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (!el.confirmOverlay.hidden) cancelPendingAction();
+        else if (!el.detailModalOverlay.hidden) closeDetailModal();
+        else if (!el.contactModalOverlay.hidden) closeContactModal();
+      });
+
+      _listenersAttached = true;
+    }
+
+    await loadData();
     populateCategorySelects();
     renderDashboard();
     renderCardDeck();
     renderCategories();
-
-    el.contactForm.addEventListener('submit', handleFormSubmit);
-    el.photoInput.addEventListener('change', (e) => handlePhotoSelected(e.target.files[0]));
-    document.getElementById('btnRemovePhoto').addEventListener('click', removePhoto);
-    document.getElementById('closeContactModal').addEventListener('click', closeContactModal);
-    document.getElementById('cancelContactForm').addEventListener('click', closeContactModal);
-    el.contactModalOverlay.addEventListener('click', (e) => { if (e.target === el.contactModalOverlay) closeContactModal(); });
-
-    // Empty state CTA
-    const btnEmptyAdd = document.getElementById('btnEmptyAddContact');
-    if (btnEmptyAdd) btnEmptyAdd.addEventListener('click', openAddModal);
-    const btnDashboardEmptyAdd = document.getElementById('btnDashboardEmptyAdd');
-    if (btnDashboardEmptyAdd) btnDashboardEmptyAdd.addEventListener('click', openAddModal);
-
-    document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
-    el.detailModalOverlay.addEventListener('click', (e) => { if (e.target === el.detailModalOverlay) closeDetailModal(); });
-
-    document.getElementById('detailCopyEmail').addEventListener('click', async () => {
-      const c = getDetailContact();
-      if (!c || !c.email) return Utils.showToast('No email on file.', 'error');
-      const ok = await Utils.copyToClipboard(c.email);
-      Utils.showToast(ok ? 'Email copied.' : 'Could not copy email.', ok ? 'success' : 'error');
-    });
-
-    document.getElementById('detailCopyPhone').addEventListener('click', async () => {
-      const c = getDetailContact();
-      if (!c || !c.phone) return Utils.showToast('No phone on file.', 'error');
-      const ok = await Utils.copyToClipboard(c.phone);
-      Utils.showToast(ok ? 'Phone number copied.' : 'Could not copy phone number.', ok ? 'success' : 'error');
-    });
-
-    document.getElementById('detailOpenWebsite').addEventListener('click', () => {
-      const c = getDetailContact();
-      if (!c || !c.website) return Utils.showToast('No website on file.', 'error');
-      window.open(Utils.normalizeUrl(c.website), '_blank', 'noopener');
-    });
-
-    document.getElementById('detailExportVcard').addEventListener('click', () => {
-      const c = getDetailContact();
-      if (!c) return;
-      const vcard = Utils.vCardFor(c);
-      const filename = `${(c.fullName || 'contact').replace(/\s+/g, '_')}.vcf`;
-      Utils.downloadFile(filename, vcard, 'text/vcard');
-      Utils.showToast('vCard exported.', 'success');
-    });
-
-    document.getElementById('detailEdit').addEventListener('click', () => {
-      const id = detailContactId;
-      closeDetailModal();
-      openEditModal(id);
-    });
-
-    document.getElementById('detailDelete').addEventListener('click', () => {
-      const id = detailContactId;
-      closeDetailModal();
-      requestDeleteContact(id);
-    });
-
-    document.getElementById('confirmOk').addEventListener('click', confirmPendingAction);
-    document.getElementById('confirmCancel').addEventListener('click', cancelPendingAction);
-    el.confirmOverlay.addEventListener('click', (e) => { if (e.target === el.confirmOverlay) cancelPendingAction(); });
-
-    document.getElementById('btnAddCategory').addEventListener('click', () => {
-      const input = document.getElementById('newCategoryInput');
-      if (addCategory(input.value)) input.value = '';
-    });
-    document.getElementById('newCategoryInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') document.getElementById('btnAddCategory').click();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape') return;
-      if (!el.confirmOverlay.hidden) cancelPendingAction();
-      else if (!el.detailModalOverlay.hidden) closeDetailModal();
-      else if (!el.contactModalOverlay.hidden) closeContactModal();
-    });
   }
 
   return {

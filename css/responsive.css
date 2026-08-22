@@ -222,7 +222,7 @@
   }
 
   /* Keep every mobile control comfortably tappable. */
-  button,
+  button:not(.tab-btn),
   input,
   select,
   textarea,

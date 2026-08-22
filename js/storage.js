@@ -1,203 +1,283 @@
 const Storage = (() => {
-  const KEYS = { CONTACTS: 'bco_contacts', CATEGORIES: 'bco_categories', SETTINGS: 'bco_settings', USERS: 'chp_users' };
   const SCHEMA_VERSION = 2;
   const DEFAULT_CATEGORIES = ['Clients', 'Vendors', 'Partners', 'Employees', 'Personal'];
-  const DEFAULT_SETTINGS = { theme: 'light', schemaVersion: SCHEMA_VERSION };
+  const DEFAULT_SETTINGS   = { theme: 'light', schemaVersion: SCHEMA_VERSION };
+
+  // Legacy LocalStorage keys — kept only for the one-time migration path.
+  const LEGACY_KEYS = {
+    CONTACTS:   'bco_contacts',
+    CATEGORIES: 'bco_categories',
+    SETTINGS:   'bco_settings',
+    USERS:      'chp_users',
+    SESSION:    'chp_session',
+  };
+
+  // ── helpers shared with import / migration ────────────────────────────────
 
   function safeParse(raw, fallback) {
     if (!raw) return fallback;
-    try { const parsed = JSON.parse(raw); return parsed === null ? fallback : parsed; } catch (_) { return fallback; }
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed === null ? fallback : parsed;
+    } catch (_) {
+      return fallback;
+    }
   }
-  function read(key, fallback) {
-    try { return safeParse(localStorage.getItem(key), fallback); } catch (_) { throw new Error('Browser storage is unavailable. Changes cannot be saved.'); }
-  }
-  function write(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) { throw new Error('Browser storage is full or unavailable. Changes were not saved.'); }
-  }
+
   function normalizeCategories(value) {
     if (!Array.isArray(value)) return [...DEFAULT_CATEGORIES];
     const unique = [];
     value.forEach((category) => {
       const name = typeof category === 'string' ? category.trim() : '';
-      if (name && name.length <= 60 && !unique.some((item) => item.toLowerCase() === name.toLowerCase())) unique.push(name);
+      if (
+        name &&
+        name.length <= 60 &&
+        !unique.some((item) => item.toLowerCase() === name.toLowerCase())
+      ) {
+        unique.push(name);
+      }
     });
     return unique.length ? unique : [...DEFAULT_CATEGORIES];
   }
+
   function normalizeContacts(value) {
     if (!Array.isArray(value)) return [];
     const ids = new Set();
     return value.reduce((result, item) => {
       if (!item || typeof item !== 'object') return result;
       const contact = Validation.sanitizeContact(item);
-      if (Object.keys(Validation.validateContact(contact)).length || ids.has(contact.id)) return result;
-      ids.add(contact.id); result.push(contact); return result;
+      if (Object.keys(Validation.validateContact(contact)).length || ids.has(contact.id)) {
+        return result;
+      }
+      ids.add(contact.id);
+      result.push(contact);
+      return result;
     }, []);
   }
-  function getContacts() { return normalizeContacts(read(KEYS.CONTACTS, [])); }
-  function saveContacts(contacts) {
-    if (!Array.isArray(contacts)) throw new Error('Contacts must be an array.');
-    write(KEYS.CONTACTS, normalizeContacts(contacts));
-  }
-  function getCategories() { return normalizeCategories(read(KEYS.CATEGORIES, [...DEFAULT_CATEGORIES])); }
-  function saveCategories(categories) { write(KEYS.CATEGORIES, normalizeCategories(categories)); }
-  function getSettings() {
-    const settings = read(KEYS.SETTINGS, { ...DEFAULT_SETTINGS });
-    return { ...DEFAULT_SETTINGS, ...(settings && typeof settings === 'object' ? settings : {}) };
-  }
-  function saveSettings(settings) { write(KEYS.SETTINGS, { ...DEFAULT_SETTINGS, ...(settings || {}), schemaVersion: SCHEMA_VERSION }); }
-  function init() { saveContacts(getContacts()); saveCategories(getCategories()); saveSettings(getSettings()); }
-  function exportAll() { return { contacts: getContacts(), categories: getCategories(), settings: getSettings(), exportedAt: new Date().toISOString(), version: SCHEMA_VERSION }; }
-  function inspectImport(data) {
-    if (!data || typeof data !== 'object' || !Array.isArray(data.contacts)) throw new Error('The import file must contain a contacts array.');
-    const existing = getContacts(); const importIds = new Set(); const newContacts = [];
-    let duplicateRecords = 0; let invalidRecords = 0;
-    data.contacts.forEach((item) => {
-      if (!item || typeof item !== 'object') { invalidRecords += 1; return; }
-      const contact = Validation.sanitizeContact(item);
-      if (Object.keys(Validation.validateContact(contact)).length || importIds.has(contact.id)) { invalidRecords += 1; return; }
-      importIds.add(contact.id);
-      if (Validation.findDuplicate(contact, [...existing, ...newContacts])) { duplicateRecords += 1; return; }
-      newContacts.push(contact);
-    });
-    return { totalRecords: data.contacts.length, newContacts, duplicateRecords, invalidRecords, categories: normalizeCategories(data.categories) };
-  }
-  function importAll(data) {
-    const preview = inspectImport(data);
-    if (!preview.newContacts.length) return preview;
-    saveContacts([...getContacts(), ...preview.newContacts]);
-    saveCategories([...getCategories(), ...preview.categories]);
-    return preview;
-  }
-  function resetAll() {
-    try { localStorage.removeItem(KEYS.CONTACTS); localStorage.removeItem(KEYS.CATEGORIES); localStorage.removeItem(KEYS.SETTINGS); init(); }
-    catch (_) { throw new Error('Browser storage is unavailable. Data could not be reset.'); }
+
+  // ── column-name mapping: JS camelCase ↔ DB snake_case ────────────────────
+
+  function _toRow(contact, userId) {
+    return {
+      id:                contact.id,
+      user_id:           userId,
+      full_name:         contact.fullName          || '',
+      company:           contact.company           || '',
+      job_title:         contact.jobTitle          || '',
+      email:             contact.email             || '',
+      phone:             contact.phone             || '',
+      website:           contact.website           || '',
+      address:           contact.address           || '',
+      notes:             contact.notes             || '',
+      category:          contact.category          || '',
+      photo:             contact.photo             || null,
+      favorite:          Boolean(contact.favorite),
+      priority:          contact.priority          || 'medium',
+      status:            contact.status            || 'active',
+      last_contacted_at: contact.lastContactedAt   || null,
+      next_follow_up_at: contact.nextFollowUpAt    || null,
+      created_at:        contact.createdAt         || new Date().toISOString(),
+      updated_at:        contact.updatedAt         || new Date().toISOString(),
+    };
   }
 
-  // --- User store helpers (multi-user API) ---
-
-  /** Returns the full array of User records. Returns [] if the key is missing or the stored value is corrupt. */
-  function getUsers() {
-    const users = read(KEYS.USERS, []);
-    return Array.isArray(users) ? users : [];
+  function _fromRow(row) {
+    return {
+      id:              row.id,
+      fullName:        row.full_name        || '',
+      company:         row.company          || '',
+      jobTitle:        row.job_title        || '',
+      email:           row.email            || '',
+      phone:           row.phone            || '',
+      website:         row.website          || '',
+      address:         row.address          || '',
+      notes:           row.notes            || '',
+      category:        row.category         || '',
+      photo:           row.photo            || null,
+      favorite:        Boolean(row.favorite),
+      priority:        row.priority         || 'medium',
+      status:          row.status           || 'active',
+      lastContactedAt: row.last_contacted_at || null,
+      nextFollowUpAt:  row.next_follow_up_at || null,
+      createdAt:       row.created_at,
+      updatedAt:       row.updated_at,
+    };
   }
 
-  /** Persists the full array of User records to LocalStorage. */
-  function saveUsers(users) {
-    if (!Array.isArray(users)) throw new Error('Users must be an array.');
-    write(KEYS.USERS, users);
-  }
-
-  /** Returns the User object whose id matches userId, or null if not found. */
-  function getUserById(userId) {
-    if (!userId) return null;
-    const users = getUsers();
-    return users.find((u) => u && u.id === userId) || null;
-  }
-
-  /** Returns the User object whose email matches (case-insensitive), or null if not found. */
-  function getUserByEmail(email) {
-    if (!email) return null;
-    const target = email.toLowerCase();
-    const users = getUsers();
-    return users.find((u) => u && typeof u.email === 'string' && u.email.toLowerCase() === target) || null;
-  }
-
-  // --- Per-user data methods (Req 17 AC 2) ---
-
-  /** Returns the Contact array for the given user, normalised via normalizeContacts.
-   *  Returns [] if userId does not match any record. */
-  function getContactsForUser(userId) {
-    const user = getUserById(userId);
-    if (!user) return [];
-    return normalizeContacts(Array.isArray(user.contacts) ? user.contacts : []);
-  }
-
-  /** Persists contacts to the matching user's record via saveUsers.
-   *  Does nothing if userId is not found. */
-  function saveContactsForUser(userId, contacts) {
-    const users = getUsers();
-    const index = users.findIndex((u) => u && u.id === userId);
-    if (index === -1) return;
-    users[index] = { ...users[index], contacts: normalizeContacts(Array.isArray(contacts) ? contacts : []) };
-    saveUsers(users);
-  }
-
-  /** Returns the categories array for the given user.
-   *  Returns [...DEFAULT_CATEGORIES] if userId does not match any record. */
-  function getCategoriesForUser(userId) {
-    const user = getUserById(userId);
-    if (!user) return [...DEFAULT_CATEGORIES];
-    return Array.isArray(user.categories) ? user.categories : [...DEFAULT_CATEGORIES];
-  }
-
-  /** Persists normalizeCategories(categories) to the matching user's record via saveUsers.
-   *  Does nothing if userId is not found. */
-  function saveCategoriesForUser(userId, categories) {
-    const users = getUsers();
-    const index = users.findIndex((u) => u && u.id === userId);
-    if (index === -1) return;
-    users[index] = { ...users[index], categories: normalizeCategories(categories) };
-    saveUsers(users);
-  }
-
-  /** Returns the settings object for the given user.
-   *  Returns DEFAULT_SETTINGS if userId does not match any record. */
-  function getSettingsForUser(userId) {
-    const user = getUserById(userId);
-    if (!user) return { ...DEFAULT_SETTINGS };
-    const stored = user.settings && typeof user.settings === 'object' ? user.settings : {};
-    return { ...DEFAULT_SETTINGS, ...stored };
-  }
-
-  /** Persists settings merged with DEFAULT_SETTINGS to the matching user's record via saveUsers.
-   *  Does nothing if userId is not found. */
-  function saveSettingsForUser(userId, settings) {
-    const users = getUsers();
-    const index = users.findIndex((u) => u && u.id === userId);
-    if (index === -1) return;
-    users[index] = { ...users[index], settings: { ...DEFAULT_SETTINGS, ...(settings || {}), schemaVersion: SCHEMA_VERSION } };
-    saveUsers(users);
-  }
-
-  // --- Per-user export / import / reset (Req 8 AC 5; Design §4.1) ---
+  // ── per-user contacts ─────────────────────────────────────────────────────
 
   /**
-   * Returns a snapshot of the user's data suitable for download.
-   * Reads exclusively via the per-user helpers — no direct localStorage access.
+   * Fetch all contacts for a user, ordered newest-first.
    * @param {string} userId
-   * @returns {{ contacts: Contact[], categories: string[], settings: object, exportedAt: string, version: number }}
+   * @returns {Promise<Contact[]>}
    */
-  function exportForUser(userId) {
+  async function getContactsForUser(userId) {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw new Error('Could not load contacts.');
+    return (data || []).map(_fromRow);
+  }
+
+  /**
+   * Persist the full in-memory contacts array for a user.
+   * Uses upsert for adds/edits and deletes rows that are no longer present.
+   * @param {string} userId
+   * @param {Contact[]} contacts
+   * @returns {Promise<void>}
+   */
+  async function saveContactsForUser(userId, contacts) {
+    if (!Array.isArray(contacts)) throw new Error('Contacts must be an array.');
+
+    if (contacts.length > 0) {
+      const rows = contacts.map((c) => _toRow(c, userId));
+      const { error: upsertErr } = await supabase
+        .from('contacts')
+        .upsert(rows, { onConflict: 'id' });
+      if (upsertErr) throw new Error('Could not save contacts.');
+    }
+
+    // Remove rows that exist in the DB but are no longer in the array.
+    const ids = contacts.map((c) => c.id);
+    if (ids.length > 0) {
+      const { error: delErr } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('user_id', userId)
+        .not('id', 'in', `(${ids.join(',')})`);
+      if (delErr) throw new Error('Could not sync contacts.');
+    } else {
+      // Array is empty — delete everything for this user.
+      const { error: delErr } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('user_id', userId);
+      if (delErr) throw new Error('Could not clear contacts.');
+    }
+  }
+
+  // ── per-user categories ───────────────────────────────────────────────────
+
+  /**
+   * Fetch the ordered category name list for a user.
+   * @param {string} userId
+   * @returns {Promise<string[]>}
+   */
+  async function getCategoriesForUser(userId) {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('name')
+      .eq('user_id', userId)
+      .order('position', { ascending: true });
+
+    if (error) return [...DEFAULT_CATEGORIES];
+    const names = (data || []).map((r) => r.name);
+    return names.length ? names : [...DEFAULT_CATEGORIES];
+  }
+
+  /**
+   * Replace the category list for a user.
+   * Deletes all existing rows then inserts the new list in position order.
+   * @param {string} userId
+   * @param {string[]} categories
+   * @returns {Promise<void>}
+   */
+  async function saveCategoriesForUser(userId, categories) {
+    const normalized = normalizeCategories(categories);
+
+    await supabase.from('categories').delete().eq('user_id', userId);
+
+    if (normalized.length > 0) {
+      const { error } = await supabase.from('categories').insert(
+        normalized.map((name, i) => ({ user_id: userId, name, position: i }))
+      );
+      if (error) throw new Error('Could not save categories.');
+    }
+  }
+
+  // ── per-user settings ─────────────────────────────────────────────────────
+
+  /**
+   * Fetch settings for a user.  Returns DEFAULT_SETTINGS if no row exists.
+   * @param {string} userId
+   * @returns {Promise<object>}
+   */
+  async function getSettingsForUser(userId) {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('theme')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error || !data) return { ...DEFAULT_SETTINGS };
+    return { theme: data.theme || 'light', schemaVersion: SCHEMA_VERSION };
+  }
+
+  /**
+   * Persist settings for a user.
+   * @param {string} userId
+   * @param {object} settings
+   * @returns {Promise<void>}
+   */
+  async function saveSettingsForUser(userId, settings) {
+    const theme = (settings && settings.theme === 'dark') ? 'dark' : 'light';
+    const { error } = await supabase
+      .from('settings')
+      .upsert({ user_id: userId, theme }, { onConflict: 'user_id' });
+    if (error) throw new Error('Could not save settings.');
+  }
+
+  // ── per-user export ───────────────────────────────────────────────────────
+
+  /**
+   * Build a JSON-exportable snapshot of the user's data.
+   * @param {string} userId
+   * @returns {Promise<object>}
+   */
+  async function exportForUser(userId) {
+    const [contacts, categories, settings] = await Promise.all([
+      getContactsForUser(userId),
+      getCategoriesForUser(userId),
+      getSettingsForUser(userId),
+    ]);
     return {
-      contacts: getContactsForUser(userId),
-      categories: getCategoriesForUser(userId),
-      settings: getSettingsForUser(userId),
+      contacts,
+      categories,
+      settings,
       exportedAt: new Date().toISOString(),
       version: SCHEMA_VERSION,
     };
   }
 
+  // ── per-user import ───────────────────────────────────────────────────────
+
   /**
-   * Analyses import data against the user's existing contacts using the same
-   * duplicate-detection logic as inspectImport.  Does NOT persist anything.
+   * Analyse import data against the user's existing contacts.
+   * Does NOT persist anything.
    * @param {string} userId
    * @param {{ contacts: any[] }} data
-   * @returns {{ totalRecords: number, newContacts: Contact[], duplicateRecords: number, invalidRecords: number }}
+   * @returns {Promise<{ totalRecords, newContacts, duplicateRecords, invalidRecords }>}
    */
-  function inspectImportForUser(userId, data) {
+  async function inspectImportForUser(userId, data) {
     if (!data || typeof data !== 'object' || !Array.isArray(data.contacts)) {
       throw new Error('The import file must contain a contacts array.');
     }
-    const existing = getContactsForUser(userId);
-    const importIds = new Set();
+    const existing    = await getContactsForUser(userId);
+    const importIds   = new Set();
     const newContacts = [];
     let duplicateRecords = 0;
-    let invalidRecords = 0;
+    let invalidRecords   = 0;
 
     data.contacts.forEach((item) => {
       if (!item || typeof item !== 'object') { invalidRecords += 1; return; }
       const contact = Validation.sanitizeContact(item);
-      if (Object.keys(Validation.validateContact(contact)).length || importIds.has(contact.id)) {
+      if (
+        Object.keys(Validation.validateContact(contact)).length ||
+        importIds.has(contact.id)
+      ) {
         invalidRecords += 1;
         return;
       }
@@ -213,115 +293,176 @@ const Storage = (() => {
   }
 
   /**
-   * Merges valid, non-duplicate contacts from data into the user's Contact_Store
-   * and persists the result via saveContactsForUser.
+   * Merge valid, non-duplicate contacts from data into the user's store.
    * @param {string} userId
    * @param {{ contacts: any[] }} data
-   * @returns {{ totalRecords: number, newContacts: Contact[], duplicateRecords: number, invalidRecords: number }}
+   * @returns {Promise<{ totalRecords, newContacts, duplicateRecords, invalidRecords }>}
    */
-  function importAllForUser(userId, data) {
-    const preview = inspectImportForUser(userId, data);
+  async function importAllForUser(userId, data) {
+    const preview = await inspectImportForUser(userId, data);
     if (preview.newContacts.length > 0) {
-      const merged = [...getContactsForUser(userId), ...preview.newContacts];
-      saveContactsForUser(userId, merged);
+      const existing = await getContactsForUser(userId);
+      await saveContactsForUser(userId, [...existing, ...preview.newContacts]);
+
+      // Merge any new categories from the import file.
+      if (Array.isArray(data.categories) && data.categories.length) {
+        const existingCats = await getCategoriesForUser(userId);
+        const merged = normalizeCategories([...existingCats, ...data.categories]);
+        await saveCategoriesForUser(userId, merged);
+      }
     }
     return preview;
   }
 
+  // ── per-user reset ────────────────────────────────────────────────────────
+
   /**
-   * Resets a user's contacts to [], categories to the default list, and settings
-   * to { theme: 'light', schemaVersion: 2 }.  Does NOT remove the user account.
+   * Wipe the user's contacts, reset categories to defaults, reset theme to light.
+   * Does NOT delete the auth account.
    * @param {string} userId
+   * @returns {Promise<void>}
    */
-  function resetUser(userId) {
-    const users = getUsers();
-    const index = users.findIndex((u) => u && u.id === userId);
-    if (index === -1) return;
-    users[index] = {
-      ...users[index],
-      contacts: [],
-      categories: [...DEFAULT_CATEGORIES],
-      settings: { ...DEFAULT_SETTINGS },
-    };
-    saveUsers(users);
+  async function resetUser(userId) {
+    await Promise.all([
+      supabase.from('contacts').delete().eq('user_id', userId),
+      saveCategoriesForUser(userId, [...DEFAULT_CATEGORIES]),
+      saveSettingsForUser(userId, { theme: 'light' }),
+    ]);
   }
 
-  // --- Migration helpers (Req 18; Design §4.1, §7) ---
+  // ── legacy LocalStorage migration helpers ─────────────────────────────────
+  // These exist solely to handle users who still have data in the old
+  // chp_users / bco_* keys from the LocalStorage-only version.
+  // They are purely LocalStorage reads — no Supabase writes here; callers
+  // (app.js showMigrationPrompt) handle the Supabase writes themselves.
 
   /**
-   * Returns true only when the legacy `bco_contacts` key is present AND the
-   * new `chp_users` key is absent — i.e. this is a first-run after upgrading
-   * from the single-user version.
-   * Once migration is complete (bco_* keys removed) this will return false on
-   * every subsequent page load, satisfying the "callable only once" guarantee
-   * (Req 18 AC 7).
+   * True when the legacy bco_contacts key exists AND chp_users is absent.
+   * This is the "upgrading from the original single-user build" scenario.
    * @returns {boolean}
    */
   function detectLegacyData() {
     try {
-      const hasLegacy = localStorage.getItem(KEYS.CONTACTS) !== null;
-      const hasUsers  = localStorage.getItem(KEYS.USERS)    !== null;
-      return hasLegacy && !hasUsers;
+      return (
+        localStorage.getItem(LEGACY_KEYS.CONTACTS) !== null &&
+        localStorage.getItem(LEGACY_KEYS.USERS)    === null
+      );
     } catch (_) {
       return false;
     }
   }
 
   /**
-   * Copies contacts and categories from the legacy bco_* keys into the named
-   * user's record, then removes bco_contacts, bco_categories, and bco_settings.
-   * Is idempotent: if bco_contacts is already absent, returns { contactCount: 0 }
-   * without error (Req 18 AC 3, 7).
-   * NOTE: Does NOT delete legacy data before migration is complete — the bco_*
-   * keys are only removed after a successful merge (Req 18 AC 1).
-   * @param {string} userId
-   * @returns {{ contactCount: number }}
+   * True when the old multi-user chp_users key is present.
+   * This means the user ran the LocalStorage multi-user version before and
+   * has account + contact data to migrate into Supabase.
+   * @returns {boolean}
    */
-  function claimLegacyData(userId) {
-    // Idempotency: if there is nothing to migrate, return early.
-    if (localStorage.getItem(KEYS.CONTACTS) === null) {
-      return { contactCount: 0 };
+  function detectLocalStorageUsers() {
+    try {
+      return localStorage.getItem(LEGACY_KEYS.USERS) !== null;
+    } catch (_) {
+      return false;
     }
-
-    // Read legacy data without removing it yet (Req 18 AC 1).
-    const legacyContacts   = safeParse(localStorage.getItem(KEYS.CONTACTS),   []);
-    const legacyCategories = safeParse(localStorage.getItem(KEYS.CATEGORIES), []);
-
-    const normalizedLegacyContacts   = normalizeContacts(legacyContacts);
-    const normalizedLegacyCategories = normalizeCategories(legacyCategories);
-    const contactCount = normalizedLegacyContacts.length;
-
-    // Merge contacts — append to the user's existing contacts, skipping
-    // duplicates detected by Validation.findDuplicate (same logic as importAll).
-    const existingContacts = getContactsForUser(userId);
-    const dedupedNew = normalizedLegacyContacts.filter(
-      (lc) => !Validation.findDuplicate(lc, existingContacts),
-    );
-    saveContactsForUser(userId, [...existingContacts, ...dedupedNew]);
-
-    // Merge categories — union of existing and legacy, preserving order.
-    const existingCategories = getCategoriesForUser(userId);
-    const mergedCategories = normalizeCategories([...existingCategories, ...normalizedLegacyCategories]);
-    saveCategoriesForUser(userId, mergedCategories);
-
-    // Only now that the merge has succeeded, remove the legacy keys (Req 18 AC 3).
-    try { localStorage.removeItem(KEYS.CONTACTS);   } catch (_) { /* best-effort */ }
-    try { localStorage.removeItem(KEYS.CATEGORIES); } catch (_) { /* best-effort */ }
-    try { localStorage.removeItem(KEYS.SETTINGS);   } catch (_) { /* best-effort */ }
-
-    return { contactCount };
   }
 
   /**
-   * Removes bco_contacts, bco_categories, and bco_settings from LocalStorage
-   * without reading their contents (Req 18 AC 5).
-   * Used when the user chooses "Start Fresh" in the migration flow.
+   * Read all user records from the legacy chp_users key.
+   * Returns [] if the key is absent or corrupt.
+   * @returns {object[]}
    */
-  function discardLegacyData() {
-    try { localStorage.removeItem(KEYS.CONTACTS);   } catch (_) { /* best-effort */ }
-    try { localStorage.removeItem(KEYS.CATEGORIES); } catch (_) { /* best-effort */ }
-    try { localStorage.removeItem(KEYS.SETTINGS);   } catch (_) { /* best-effort */ }
+  function getLegacyUsers() {
+    try {
+      return safeParse(localStorage.getItem(LEGACY_KEYS.USERS), []) || [];
+    } catch (_) {
+      return [];
+    }
   }
 
-  return { KEYS, SCHEMA_VERSION, DEFAULT_CATEGORIES, init, getContacts, saveContacts, getCategories, saveCategories, getSettings, saveSettings, exportAll, inspectImport, importAll, resetAll, getUsers, saveUsers, getUserById, getUserByEmail, getContactsForUser, saveContactsForUser, getCategoriesForUser, saveCategoriesForUser, getSettingsForUser, saveSettingsForUser, exportForUser, inspectImportForUser, importAllForUser, resetUser, detectLegacyData, claimLegacyData, discardLegacyData };
+  /**
+   * Read legacy bco_* contacts (the very old single-user format).
+   * Returns normalised Contact[].
+   */
+  function getLegacyContacts() {
+    try {
+      const raw = safeParse(localStorage.getItem(LEGACY_KEYS.CONTACTS), []);
+      return normalizeContacts(raw);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /**
+   * Read legacy bco_* categories.
+   * Returns normalised string[].
+   */
+  function getLegacyCategories() {
+    try {
+      const raw = safeParse(localStorage.getItem(LEGACY_KEYS.CATEGORIES), []);
+      return normalizeCategories(raw);
+    } catch (_) {
+      return [...DEFAULT_CATEGORIES];
+    }
+  }
+
+  /**
+   * Remove all legacy LocalStorage keys (bco_* and chp_*).
+   * Call only after a successful Supabase migration.
+   */
+  function clearLegacyData() {
+    [
+      LEGACY_KEYS.CONTACTS,
+      LEGACY_KEYS.CATEGORIES,
+      LEGACY_KEYS.SETTINGS,
+      LEGACY_KEYS.USERS,
+      LEGACY_KEYS.SESSION,
+    ].forEach((key) => {
+      try { localStorage.removeItem(key); } catch (_) { /* best-effort */ }
+    });
+  }
+
+  // ── kept for backward-compat with app.js migration overlay ───────────────
+  // The old app.js migration prompt calls these directly.
+
+  function discardLegacyData() {
+    [LEGACY_KEYS.CONTACTS, LEGACY_KEYS.CATEGORIES, LEGACY_KEYS.SETTINGS].forEach((key) => {
+      try { localStorage.removeItem(key); } catch (_) { /* best-effort */ }
+    });
+  }
+
+  // getContacts() is kept so showMigrationPrompt() (app.js) can read the
+  // legacy contact count without changes to that code path.
+  function getContacts() {
+    return getLegacyContacts();
+  }
+
+  return {
+    SCHEMA_VERSION,
+    DEFAULT_CATEGORIES,
+    DEFAULT_SETTINGS,
+    LEGACY_KEYS,
+    // helpers
+    normalizeContacts,
+    normalizeCategories,
+    // per-user async API
+    getContactsForUser,
+    saveContactsForUser,
+    getCategoriesForUser,
+    saveCategoriesForUser,
+    getSettingsForUser,
+    saveSettingsForUser,
+    exportForUser,
+    inspectImportForUser,
+    importAllForUser,
+    resetUser,
+    // legacy migration helpers (LocalStorage reads only)
+    detectLegacyData,
+    detectLocalStorageUsers,
+    getLegacyUsers,
+    getLegacyContacts,
+    getLegacyCategories,
+    clearLegacyData,
+    discardLegacyData,
+    getContacts,
+  };
 })();

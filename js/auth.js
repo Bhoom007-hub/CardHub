@@ -1,138 +1,160 @@
 const Auth = (() => {
-  // SECURITY NOTE: Passwords are stored as plain text in LocalStorage.
-  // This is a client-side prototype only. Before any production deployment
-  // replace this module with calls to an authenticated backend API.
+  // Supabase-backed Auth layer.
+  // All methods that touch the network are async and return
+  // { ok: true, user } | { ok: false, error: string }.
+  //
+  // isAuthenticated() is kept synchronous by maintaining a module-level
+  // session variable that is updated by onAuthStateChange.  This means
+  // Router.navigate() (which calls isAuthenticated()) does not need to
+  // become async.
 
-  const SESSION_KEY = 'chp_session';
+  // ---- module-level session cache ----
+  let _session = null;
 
-  const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Seed the cache from whatever Supabase has stored locally, then keep
+  // it in sync for the lifetime of the page.
+  supabase.auth.getSession().then(({ data }) => {
+    _session = data.session;
+  });
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    _session = session;
+  });
+
+  // ---- helpers ----
+
+  /** Map a Supabase user object to the slim shape the rest of the app uses. */
+  function _toAppUser(supabaseUser) {
+    return {
+      id:    supabaseUser.id,
+      name:  (supabaseUser.user_metadata && supabaseUser.user_metadata.name) || '',
+      email: supabaseUser.email,
+    };
+  }
+
+  // ---- public API ----
 
   /**
-   * Registers a new user account.
-   * Validates name, email, and password; checks for duplicate email;
-   * creates a User record in the User_Store; establishes a session.
+   * Register a new account.
+   * Client-side validation is still run by the caller (app.js) before
+   * this function is reached, so we only need to handle Supabase errors here.
    *
    * @param {string} name
    * @param {string} email
    * @param {string} password
-   * @returns {{ ok: true, user: object } | { ok: false, error: string }}
+   * @returns {Promise<{ ok: true, user: object } | { ok: false, error: string }>}
    */
-  function register(name, email, password) {
-    // Validate name
-    const nameError = Validation.validateUserName(name);
-    if (nameError) return { ok: false, error: nameError };
-
-    // Validate email
-    const trimmedEmail = typeof email === 'string' ? email.trim() : '';
-    if (!trimmedEmail) return { ok: false, error: 'Email is required.' };
-    if (!EMAIL_PATTERN.test(trimmedEmail)) return { ok: false, error: 'Enter a valid email address.' };
-
-    // Validate password
-    const passwordError = Validation.validatePassword(password);
-    if (passwordError) return { ok: false, error: passwordError };
-
-    // Check email uniqueness
-    const normalizedEmail = trimmedEmail.toLowerCase();
-    const existing = Storage.getUserByEmail(normalizedEmail);
-    if (existing) return { ok: false, error: 'An account with that email already exists.' };
-
-    // Generate user ID
-    const id = 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9);
-
-    // Build User record
-    const newUser = {
-      id,
-      name: name.trim(),
-      email: normalizedEmail,
+  async function register(name, email, password) {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
       password,
-      contacts: [],
-      categories: ['Clients', 'Vendors', 'Partners', 'Employees', 'Personal'],
-      settings: { theme: 'light', schemaVersion: 2 },
-    };
+      options: { data: { name: name.trim() } },
+    });
 
-    // Persist to User_Store
-    Storage.saveUsers([...Storage.getUsers(), newUser]);
+    if (error) {
+      // Map Supabase error messages to the expected UI strings.
+      const msg = error.message || '';
+      if (/already registered/i.test(msg) || /already exists/i.test(msg)) {
+        return { ok: false, error: 'An account with that email already exists.' };
+      }
+      return { ok: false, error: msg || 'Registration failed. Please try again.' };
+    }
 
-    // Write session
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: newUser.id }));
+    if (!data.user) {
+      // Supabase returns a user object even when email confirmation is
+      // required.  If it is genuinely absent something unexpected happened.
+      return { ok: false, error: 'Registration failed. Please try again.' };
+    }
 
-    return { ok: true, user: newUser };
+    // Insert default settings and categories rows for the new user.
+    // Errors here are non-fatal — Storage methods fall back to defaults.
+    await _initNewUser(data.user.id);
+
+    return { ok: true, user: _toAppUser(data.user) };
   }
 
   /**
-   * Logs in a user by email and password.
-   * Uses the same error message for "not found" and "wrong password" to
-   * avoid leaking whether an email address is registered (Req 13 AC 1).
+   * Insert the default settings row and default categories for a brand-new
+   * user.  Called once, immediately after signUp succeeds.
+   */
+  async function _initNewUser(userId) {
+    const defaultCategories = Storage.DEFAULT_CATEGORIES;
+
+    // settings row — upsert so a duplicate call is harmless
+    await supabase.from('settings').upsert(
+      { user_id: userId, theme: 'light' },
+      { onConflict: 'user_id' }
+    );
+
+    // categories — insert only if the user has no rows yet
+    const { data: existing } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1);
+
+    if (!existing || existing.length === 0) {
+      await supabase.from('categories').insert(
+        defaultCategories.map((name, i) => ({ user_id: userId, name, position: i }))
+      );
+    }
+  }
+
+  /**
+   * Sign in with email + password.
    *
    * @param {string} email
    * @param {string} password
-   * @returns {{ ok: true, user: object } | { ok: false, error: string }}
+   * @returns {Promise<{ ok: true, user: object } | { ok: false, error: string }>}
    */
-  function login(email, password) {
-    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    const user = Storage.getUserByEmail(normalizedEmail);
+  async function login(email, password) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
 
-    // Return identical error for missing user AND wrong password (Req 13 AC 1)
-    if (!user || user.password !== password) {
+    if (error) {
+      // Always return the same message regardless of whether the email or
+      // password was wrong, to avoid leaking account existence.
       return { ok: false, error: 'Invalid email or password.' };
     }
 
-    // Establish session
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id }));
-
-    return { ok: true, user };
+    return { ok: true, user: _toAppUser(data.user) };
   }
 
   /**
-   * Removes the current session from LocalStorage (Req 11 AC 1).
-   */
-  function logout() {
-    localStorage.removeItem(SESSION_KEY);
-  }
-
-  /**
-   * Returns the currently authenticated User object, or null.
-   * Clears the session if it is missing, malformed, or references a userId
-   * that no longer exists in the User_Store (Req 13 AC 3, Req 5 AC 2).
+   * Sign out the current user.
    *
-   * @returns {object|null}
+   * @returns {Promise<void>}
    */
-  function getCurrentUser() {
-    let session;
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return null;
-      session = JSON.parse(raw);
-    } catch (_) {
-      // Malformed JSON — clear and treat as unauthenticated
-      localStorage.removeItem(SESSION_KEY);
-      return null;
-    }
-
-    if (!session || typeof session.userId !== 'string') {
-      localStorage.removeItem(SESSION_KEY);
-      return null;
-    }
-
-    const user = Storage.getUserById(session.userId);
-    if (!user) {
-      // userId not found in the User_Store — clear stale session
-      localStorage.removeItem(SESSION_KEY);
-      return null;
-    }
-
-    return user;
+  async function logout() {
+    await supabase.auth.signOut();
+    // _session is cleared automatically by onAuthStateChange
   }
 
   /**
-   * Returns true if a valid session exists, false otherwise.
+   * Return the currently authenticated app-user object, or null.
+   * Prefers the module-level session cache to avoid an extra network round
+   * trip, but falls back to supabase.auth.getUser() for freshness.
+   *
+   * @returns {Promise<object|null>}
+   */
+  async function getCurrentUser() {
+    if (!_session) return null;
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) return null;
+    return _toAppUser(data.user);
+  }
+
+  /**
+   * Synchronous check based on the cached session.
+   * Safe to call from Router.navigate() without async/await.
    *
    * @returns {boolean}
    */
   function isAuthenticated() {
-    return Boolean(getCurrentUser());
+    return Boolean(_session);
   }
 
-  // Public API — only the five required methods are exposed (Req 17 AC 1)
-  return { register, login, logout, getCurrentUser, isAuthenticated };
+  return { register, login, logout, getCurrentUser, isAuthenticated, initNewUser: _initNewUser };
 })();

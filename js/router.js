@@ -97,6 +97,15 @@ const Router = (() => {
       });
     }
 
+    const mobileNavToggle = document.getElementById('mobileNavToggle');
+    const sidebar = document.getElementById('sidebar');
+    if (mobileNavToggle && sidebar) {
+      mobileNavToggle.addEventListener('click', () => {
+        const isOpen = sidebar.classList.toggle('is-open');
+        mobileNavToggle.setAttribute('aria-expanded', String(isOpen));
+      });
+    }
+
     renderNav();
     navigate(Auth.isAuthenticated() ? 'dashboard' : 'home');
   }
